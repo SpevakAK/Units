@@ -1,3 +1,7 @@
+{
+ Use SQLite database
+}
+
 unit uFileListDB;
 
 interface
@@ -114,16 +118,16 @@ Type
     Function Vacuum: Boolean; inline;
 
     // -------------------------------------------------------------------------
-    // AFullFileName - путь + имя файла
-    // ACheckFileExists - проверить существует ли файл на диске
+    // AFullFileName - ГЇГіГІГј + ГЁГ¬Гї ГґГ Г©Г«Г 
+    // ACheckFileExists - ГЇГ°Г®ГўГҐГ°ГЁГІГј Г±ГіГ№ГҐГ±ГІГўГіГҐГІ Г«ГЁ ГґГ Г©Г« Г­Г  Г¤ГЁГ±ГЄГҐ
     Function FileAdd(const AFullFileName: TFileName; out AFileID: TID;
       const AFileExists: Boolean = True): Boolean; overload;
     Function FileAdd(const ADirName, AOnlyFileName: TFileName; out AFileID: TID;
       const AFileExists: Boolean = True): Boolean; overload;
 
-    // @@@ Надо переделать с транзакциями
-    // Массовое добавление файлов из списка - AFullFileNames: TStrings;
-    // в Objects[i] записывается id файла в базе
+    // @@@ ГЌГ Г¤Г® ГЇГҐГ°ГҐГ¤ГҐГ«Г ГІГј Г± ГІГ°Г Г­Г§Г ГЄГ¶ГЁГїГ¬ГЁ
+    // ГЊГ Г±Г±Г®ГўГ®ГҐ Г¤Г®ГЎГ ГўГ«ГҐГ­ГЁГҐ ГґГ Г©Г«Г®Гў ГЁГ§ Г±ГЇГЁГ±ГЄГ  - AFullFileNames: TStrings;
+    // Гў Objects[i] Г§Г ГЇГЁГ±Г»ГўГ ГҐГІГ±Гї id ГґГ Г©Г«Г  Гў ГЎГ Г§ГҐ
     Function MultiFileAdd(const AFullFileNames: TStrings;
       const ACallBack: TFileNotifyEvent = nil;
       const ACheckFileExists: Boolean = True): Boolean;
@@ -137,16 +141,16 @@ Type
     Function FileDelete(const AFullFileName: TFileName): Boolean; overload;
     Function FileDelete(const AFileID: TID): Boolean; overload;
 
-    // AFullFileName - путь + имя файла
-    // ANewOnlyFileName - только имя без пути
-    // ARenameFile - переименовать файл на диске
+    // AFullFileName - ГЇГіГІГј + ГЁГ¬Гї ГґГ Г©Г«Г 
+    // ANewOnlyFileName - ГІГ®Г«ГјГЄГ® ГЁГ¬Гї ГЎГҐГ§ ГЇГіГІГЁ
+    // ARenameFile - ГЇГҐГ°ГҐГЁГ¬ГҐГ­Г®ГўГ ГІГј ГґГ Г©Г« Г­Г  Г¤ГЁГ±ГЄГҐ
     Function FileReName(const AFullFileName, ANewOnlyFileName: TFileName;
       const ARenameFile: Boolean = True): Boolean; overload;
-    // AFileID - id файла для переименования.
+    // AFileID - id ГґГ Г©Г«Г  Г¤Г«Гї ГЇГҐГ°ГҐГЁГ¬ГҐГ­Г®ГўГ Г­ГЁГї.
     Function FileReName(const AFileID: TID; const ANewOnlyFileName: TFileName;
       const ARenameFile: Boolean = True): Boolean; overload;
 
-    // aStrs - слова для поиска. AUseLike - Использовать "like" при сравнении
+    // aStrs - Г±Г«Г®ГўГ  Г¤Г«Гї ГЇГ®ГЁГ±ГЄГ . AUseLike - Г€Г±ГЇГ®Г«ГјГ§Г®ГўГ ГІГј "like" ГЇГ°ГЁ Г±Г°Г ГўГ­ГҐГ­ГЁГЁ
     Function FileNameSearch(const aStrs: TStringDynArray;
       const AUseMasks: Boolean = False): Boolean;
 
@@ -381,7 +385,7 @@ begin
   Begin
     Result := ExecSQL(cPRAGMA_Settings[i]);
     if not Result then
-      Raise Exception.CreateFmt('Параметр "s%" не корректен',
+      Raise Exception.CreateFmt('ГЏГ Г°Г Г¬ГҐГІГ° "s%" Г­ГҐ ГЄГ®Г°Г°ГҐГЄГІГҐГ­',
         [cPRAGMA_Settings[i]]);
     Inc(i);
   End; // while
@@ -877,13 +881,13 @@ End;
 
 procedure TFileListDB.OverloadFunc(AOwner: TComponent);
 begin
-  // Переопределил встроенные функции, теперь они работают с кирилицей
+  // ГЏГҐГ°ГҐГ®ГЇГ°ГҐГ¤ГҐГ«ГЁГ« ГўГ±ГІГ°Г®ГҐГ­Г­Г»ГҐ ГґГіГ­ГЄГ¶ГЁГЁ, ГІГҐГЇГҐГ°Гј Г®Г­ГЁ Г°Г ГЎГ®ГІГ ГѕГІ Г± ГЄГЁГ°ГЁГ«ГЁГ¶ГҐГ©
   FUpper := SQLiteFunction(AOwner, FDriverLink, 'Upper', 1, UpperFunc);
   FLower := SQLiteFunction(AOwner, FDriverLink, 'Lower', 1, LowerFunc);
   FInStr := SQLiteFunction(AOwner, FDriverLink, 'InStr', 2, InstrFunc);
 
   // StrLike(FieldName, 'test%text').
-  // Символы подстановки '*' и '?'. Регистронезависимая.
+  // Г‘ГЁГ¬ГўГ®Г«Г» ГЇГ®Г¤Г±ГІГ Г­Г®ГўГЄГЁ '*' ГЁ '?'. ГђГҐГЈГЁГ±ГІГ°Г®Г­ГҐГ§Г ГўГЁГ±ГЁГ¬Г Гї.
   FStrLike := SQLiteFunction(AOwner, FDriverLink, 'StrLike', 2, StrLikeFunc);
 end;
 
