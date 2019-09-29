@@ -4,6 +4,8 @@
 
 unit uFileListDB;
 
+{.$Define TFileListDB_SafeThread }
+
 interface
 
 uses Winapi.Windows, System.SysUtils, System.Classes, System.Types,
@@ -12,7 +14,8 @@ uses Winapi.Windows, System.SysUtils, System.Classes, System.Types,
   FireDAC.Stan.Pool, FireDAC.Stan.Async, FireDAC.Phys, FireDAC.VCLUI.Wait,
   FireDAC.Stan.ExprFuncs, FireDAC.Phys.SQLiteDef, FireDAC.Phys.SQLite,
   Data.DB, FireDAC.Comp.Client, FireDAC.Stan.Param, FireDAC.DatS,
-  FireDAC.DApt.Intf, FireDAC.DApt, FireDAC.Comp.DataSet, System.SyncObjs,
+  FireDAC.DApt.Intf, FireDAC.DApt, FireDAC.Comp.DataSet,
+  {$IFDEF TFileListDB_SafeThread} System.SyncObjs, {$ENDIF}
   FireDAC.Phys.SQLiteWrapper;
 
 Type
@@ -33,7 +36,9 @@ Type
     FInStr: TFDSQLiteFunction;
     FStrLike: TFDSQLiteFunction;
 
+{$IFDEF TFileListDB_SafeThread}
     CS: TCriticalSection;
+{$ENDIF}
     FCurrentOnlyFileName: TFileName;
     FRecordCount, FRecNo: Integer;
     FAutoTransaction { , FBeforeAutoTransaction } : Boolean;
@@ -118,16 +123,16 @@ Type
     Function Vacuum: Boolean; inline;
 
     // -------------------------------------------------------------------------
-    // AFullFileName - ïóòü + èìÿ ôàéëà
-    // ACheckFileExists - ïðîâåðèòü ñóùåñòâóåò ëè ôàéë íà äèñêå
+    // AFullFileName - путь + имя файла
+    // ACheckFileExists - проверить существует ли файл на диске
     Function FileAdd(const AFullFileName: TFileName; out AFileID: TID;
       const AFileExists: Boolean = True): Boolean; overload;
     Function FileAdd(const ADirName, AOnlyFileName: TFileName; out AFileID: TID;
       const AFileExists: Boolean = True): Boolean; overload;
 
-    // @@@ Íàäî ïåðåäåëàòü ñ òðàíçàêöèÿìè
-    // Ìàññîâîå äîáàâëåíèå ôàéëîâ èç ñïèñêà - AFullFileNames: TStrings;
-    // â Objects[i] çàïèñûâàåòñÿ id ôàéëà â áàçå
+    // @@@ Надо переделать с транзакциями
+    // Массовое добавление файлов из списка - AFullFileNames: TStrings;
+    // в Objects[i] записывается id файла в базе
     Function MultiFileAdd(const AFullFileNames: TStrings;
       const ACallBack: TFileNotifyEvent = nil;
       const ACheckFileExists: Boolean = True): Boolean;
@@ -141,16 +146,16 @@ Type
     Function FileDelete(const AFullFileName: TFileName): Boolean; overload;
     Function FileDelete(const AFileID: TID): Boolean; overload;
 
-    // AFullFileName - ïóòü + èìÿ ôàéëà
-    // ANewOnlyFileName - òîëüêî èìÿ áåç ïóòè
-    // ARenameFile - ïåðåèìåíîâàòü ôàéë íà äèñêå
+    // AFullFileName - путь + имя файла
+    // ANewOnlyFileName - только имя без пути
+    // ARenameFile - переименовать файл на диске
     Function FileReName(const AFullFileName, ANewOnlyFileName: TFileName;
       const ARenameFile: Boolean = True): Boolean; overload;
-    // AFileID - id ôàéëà äëÿ ïåðåèìåíîâàíèÿ.
+    // AFileID - id файла для переименования.
     Function FileReName(const AFileID: TID; const ANewOnlyFileName: TFileName;
       const ARenameFile: Boolean = True): Boolean; overload;
 
-    // aStrs - ñëîâà äëÿ ïîèñêà. AUseLike - Èñïîëüçîâàòü "like" ïðè ñðàâíåíèè
+    // aStrs - слова для поиска. AUseLike - Использовать "like" при сравнении
     Function FileNameSearch(const aStrs: TStringDynArray;
       const AUseMasks: Boolean = False): Boolean;
 
@@ -239,7 +244,9 @@ constructor TFileListDB.Create(AOwner: TComponent;
   const ALibFileName: TFileName = '');
 begin
   FAutoTransaction := True;
+{$IFDEF TFileListDB_SafeThread}
   CS := TCriticalSection.Create;
+{$ENDIF}
 
   FConn := TFDConnection.Create(AOwner);
   with FConn do
@@ -294,7 +301,9 @@ begin
   FreeAndNil(FMemTable);
   FreeAndNil(FQuery);
   FreeAndNil(FConn);
+{$IFDEF TFileListDB_SafeThread}
   FreeAndNil(CS);
+{$ENDIF}
   inherited
 end;
 
@@ -385,7 +394,7 @@ begin
   Begin
     Result := ExecSQL(cPRAGMA_Settings[i]);
     if not Result then
-      Raise Exception.CreateFmt('Ïàðàìåòð "s%" íå êîððåêòåí',
+      Raise Exception.CreateFmt('Параметр "s%" не корректен',
         [cPRAGMA_Settings[i]]);
     Inc(i);
   End; // while
@@ -823,19 +832,22 @@ end;
 function TFileListDB.ExecSQL(const ASQL: string): Boolean;
 begin
   Log(Concat('ExecSQL              ASQL=', QuotedStr(ASQL)));
-
-  Result := Connected and (ASQL <> '');
-  if Result then
-    try
-      CS.Enter;
+{$IFDEF TFileListDB_SafeThread}
+  try
+    CS.Enter;
+{$ENDIF}
+    Result := Connected and (ASQL <> '');
+    if Result then
       try
         FQuery.ExecSQL(ASQL);
       except
         Result := False;
       end; // try
-    finally
-      CS.Leave;
-    end; // try
+{$IFDEF TFileListDB_SafeThread}
+  finally
+    CS.Leave;
+  end; // try
+{$ENDIF}
 end;
 
 function TFileListDB.OpenSQL(const ASQL: string;
@@ -843,10 +855,13 @@ function TFileListDB.OpenSQL(const ASQL: string;
 begin
   Log(Concat('OpenSQL              ASQL=', QuotedStr(ASQL)));
 
-  Result := Connected and (ASQL <> '');
-  if Result then
-    try
-      CS.Enter;
+{$IFDEF TFileListDB_SafeThread}
+  try
+    CS.Enter;
+{$ENDIF}
+
+    Result := Connected and (ASQL <> '');
+    if Result then
       try
         FQuery.Open(ASQL);
         FRecordCount := FQuery.RecordCount;
@@ -865,9 +880,11 @@ begin
         Result := False;
       end; // try
 
-    finally
-      CS.Leave;
-    end; // try
+{$IFDEF TFileListDB_SafeThread}
+  finally
+    CS.Leave;
+  end; // try
+{$ENDIF}
 end;
 
 Function TFileListDB.OpenSQLAndGetFirstID(const ASQL: string;
@@ -881,13 +898,13 @@ End;
 
 procedure TFileListDB.OverloadFunc(AOwner: TComponent);
 begin
-  // Ïåðåîïðåäåëèë âñòðîåííûå ôóíêöèè, òåïåðü îíè ðàáîòàþò ñ êèðèëèöåé
+  // Переопределил встроенные функции, теперь они работают с кирилицей
   FUpper := SQLiteFunction(AOwner, FDriverLink, 'Upper', 1, UpperFunc);
   FLower := SQLiteFunction(AOwner, FDriverLink, 'Lower', 1, LowerFunc);
   FInStr := SQLiteFunction(AOwner, FDriverLink, 'InStr', 2, InstrFunc);
 
   // StrLike(FieldName, 'test%text').
-  // Ñèìâîëû ïîäñòàíîâêè '*' è '?'. Ðåãèñòðîíåçàâèñèìàÿ.
+  // Символы подстановки '*' и '?'. Регистронезависимая.
   FStrLike := SQLiteFunction(AOwner, FDriverLink, 'StrLike', 2, StrLikeFunc);
 end;
 
@@ -1025,19 +1042,19 @@ begin
   Result := OpenSQL(iSQLQuery, True);
 end;
 
-//function LikeField(const AField, AValue: string;
-//  const AUseStrLike: Boolean): string;
-//Begin
-//  Result := '';
-//  if (Trim(AField) = '') or (Trim(AValue) = '') then
-//    Exit;
+// function LikeField(const AField, AValue: string;
+// const AUseStrLike: Boolean): string;
+// Begin
+// Result := '';
+// if (Trim(AField) = '') or (Trim(AValue) = '') then
+// Exit;
 //
-//  if AUseStrLike then
-//    Result := Concat('StrLike(', QuotedStr('*' + AValue + '*'), ', ',
-//      AField, ')')
-//  else
-//    Result := Concat('%' + AField + '%', ' like ', AValue);
-//End;
+// if AUseStrLike then
+// Result := Concat('StrLike(', QuotedStr('*' + AValue + '*'), ', ',
+// AField, ')')
+// else
+// Result := Concat('%' + AField + '%', ' like ', AValue);
+// End;
 
 procedure TFileListDB.First;
 Begin
