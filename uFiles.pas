@@ -1,8 +1,9 @@
-﻿{
+{
 
   Вспомогательные функции для работа с файлами
 
 }
+
 
 unit uFiles;
 
@@ -103,6 +104,11 @@ Type
   TEveryFileProc = procedure(const ADir, AFileName: TFileName;
     var ACancel: Boolean) of object;
 
+  TProgressProc = procedure(const ACurrent, AMax: Int64) of object;
+
+  TDataProc = procedure(var ABuffer: TBytes; const ABufferSize: Integer)
+    of object;
+
 function SplitDirAndName(const AFullFileName: string;
   out ADirPath, AFileName: string): Boolean;
 
@@ -122,6 +128,15 @@ Function CheckType(const AFileName: TFileName;
 Function IsFileImage(const AFileName: TFileName): Boolean; inline;
 Function IsFileVideo(const AFileName: TFileName): Boolean; inline;
 Function IsFileAudio(const AFileName: TFileName): Boolean; inline;
+
+function StreamDataProcessing(const ASource, ADest: TStream;
+  const ADataBlock: TDataProc = nil; ADataBlockSize: Int64 = $FFFF;
+  AProgress: TProgressProc = nil): Boolean;
+
+function StreamFileProcessing(const ASource, ADest: string;
+  const ADataBlock: TDataProc = nil; ADataBlockSize: Integer = $FFFF;
+  AProgress: TProgressProc = nil): Boolean;
+
 
 implementation
 
@@ -306,5 +321,69 @@ Function IsFileAudio(const AFileName: TFileName): Boolean; inline;
 Begin
   Result := CheckType(AFileName, cAudioExts) > -1;
 End;
+
+
+function StreamDataProcessing(const ASource, ADest: TStream;
+  const ADataBlock: TDataProc; ADataBlockSize: Int64;
+  AProgress: TProgressProc): Boolean;
+
+  procedure CallBack(var ABuffer: TBytes; const ASize: Integer);
+  begin
+    if Assigned(ADataBlock) then
+      ADataBlock(ABuffer, ASize);
+  end;
+
+  procedure Progress(const ACurrent, AMax: Int64);
+  begin
+    if Assigned(AProgress) then
+      AProgress(ACurrent, AMax);
+  end;
+
+var
+  L: Int64;
+  N: Integer;
+  Buffer: TBytes;
+Begin
+  Result := Assigned(ASource) and Assigned(ADest) and (ADataBlockSize > 0);
+  if not Result then
+    Exit;
+
+  SetLength(Buffer, ADataBlockSize);
+  try
+    try
+      L := ASource.Size;
+      ASource.Position := 0;
+      repeat
+        N := ASource.Read(Buffer, ADataBlockSize);
+        CallBack(Buffer, N);
+
+        ADest.Write(Buffer[0], N);
+        Progress(ASource.Position, L);
+      until N = 0;
+    except
+      Result := False;
+    end; // try
+
+  finally
+    SetLength(Buffer, 0);
+  end; // try
+End;
+
+function StreamFileProcessing(const ASource, ADest: string;
+  const ADataBlock: TDataProc; ADataBlockSize: Integer;
+  AProgress: TProgressProc): Boolean;
+var
+  SourceFile, DestFile: TFileStream;
+Begin
+  SourceFile := TFileStream.Create(ASource, fmOpenRead);
+  DestFile := TFileStream.Create(ADest, fmCreate);
+
+  Result := StreamDataProcessing(SourceFile, DestFile, ADataBlock,
+    ADataBlockSize, AProgress);
+
+  FreeAndNil(DestFile);
+  FreeAndNil(SourceFile);
+End;
+
 
 end.
