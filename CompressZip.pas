@@ -20,6 +20,8 @@ function DecompressZipFile(const AZipFile: TFileName; const AExtractDir: string;
 
 implementation
 
+uses System.IOUtils;
+
 function CompressZipFile(const AZipFile: TFileName;
   const AFileNameList: TFileNameList;
   const AOnProgress: TZipProgressEvent): Boolean;
@@ -88,7 +90,8 @@ end;
 function DecompressZipFile(const AZipFile: TFileName; const AExtractDir: string;
   const AOnProgress: TZipProgressEvent): Boolean;
 Begin
-  Result := TZipFile.IsValid(AZipFile) and (Trim(AExtractDir) <> '');
+  Result := TZipFile.IsValid(AZipFile) and (Trim(AExtractDir) <> '') and
+            TPath.HasValidPathChars(AExtractDir);
   if Result then
     try
       TZipFile.ExtractZipFile(AZipFile, AExtractDir, AOnProgress);
