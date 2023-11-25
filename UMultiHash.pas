@@ -12,7 +12,12 @@ type
 
   TAlgoHashs = set of TAlgoHash;
 
-  THashsDictionary = TDictionary<TAlgoHash, TBytes>;
+  THashsDictionary = class(TDictionary<TAlgoHash, TBytes>)
+  public
+   function ToString: string; overload; override;
+   function ToString(const AHash: TAlgoHash): string; overload;
+  end;
+
   TProgress = procedure(const Position, Max: UInt64; var Abort: Boolean)
     of object;
 
@@ -23,9 +28,6 @@ Function CalcHash(const AFileName: TFileName; const AAlgoHashs: TAlgoHashs;
 Function CalcHash(const AStream: TStream; const AAlgoHashs: TAlgoHashs;
   out AHashs: THashsDictionary; const AProgress: TProgress = nil;
   const ABufferSize: Cardinal = $FFFF): Boolean; overload;
-
-function HashsDictionaryToText(const ASource: THashsDictionary;
-  Var AText: string): Boolean;
 
 procedure HashsList(const AList: TStrings);
 
@@ -47,7 +49,7 @@ Begin
   try
     Result := CalcHash(F, AAlgoHashs, AHashs, AProgress, ABufferSize);
   finally
-    FreeAndNil(F);
+    F.Free;
   end;
 End;
 
@@ -145,10 +147,10 @@ var
 
 Begin
   LAbort := False;
-  Result := Assigned(AStream) and (Assigned(AHashs) and (AHashs.Count = 0)) and
-    (AAlgoHashs <> []);
+  Result := False;
 
-  if not Result then
+  if not Assigned(AStream) or not Assigned(AHashs) or (AHashs.Count = 0) and
+    (AAlgoHashs = []) then
     Exit;
 
   try
@@ -169,32 +171,10 @@ Begin
     FinishHash;
     SetLength(LBuffer, 0);
 
+    Result := True;
   except
     Result := False;
   end; // try
-
-End;
-
-function HashsDictionaryToText(const ASource: THashsDictionary;
-  Var AText: string): Boolean;
-
-  procedure AddString(const AStr: string);
-  Begin
-    AText := AText + AStr + sLineBreak;
-  End;
-
-var
-  i: TAlgoHash;
-Begin
-  AText := '';
-  Result := ASource.Count <> 0;
-  if not Result then
-    Exit;
-
-  for i := Low(TAlgoHash) to High(TAlgoHash) do
-    if ASource.ContainsKey(i) then
-      AddString(GetEnumName(TypeInfo(TAlgoHash), Ord(i)) + ': ' +
-        THash.DigestAsString(ASource.Items[i]));
 
 End;
 
@@ -208,5 +188,36 @@ Begin
   for i := Low(cAlgoHashName) to High(cAlgoHashName) do
     AList.AddObject(cAlgoHashName[i], TObject(i));
 End;
+
+{ THashsDictionary }
+
+function THashsDictionary.ToString(const AHash: TAlgoHash): string;
+begin
+  Result:= '';
+  if ContainsKey(AHash) then
+   Result:= THash.DigestAsString(Items[AHash]);
+end;
+
+function THashsDictionary.ToString: string;
+var
+  i: TAlgoHash;
+  HashList: TStringList;
+Begin
+  Result:= '';
+  if Count = 0 then Exit;
+
+  HashList:= TStringList.Create;
+  try
+  for i := Low(TAlgoHash) to High(TAlgoHash) do
+    if ContainsKey(i) then
+      HashList.Add( cAlgoHashName[i] + ': ' + THash.DigestAsString(Items[i]) );
+
+   Result:= HashList.Text;
+  finally
+   HashList.Free;
+  end;
+
+
+end;
 
 end.
