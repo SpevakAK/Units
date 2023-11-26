@@ -98,9 +98,6 @@ Type
   TFileListNotifyEvent = procedure(const ADirName, AFileName: TFileName;
     var AddFile: Boolean) of object;
 
-  TEveryFileNotifyEvent = procedure(const AFileName: TFileName;
-    var ACancel: Boolean) of object;
-
   TEveryFileProc = procedure(const ADir, AFileName: TFileName;
     var ACancel: Boolean) of object;
 
