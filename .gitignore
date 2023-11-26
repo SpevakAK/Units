@@ -35,9 +35,7 @@ res/git.rc
 *.pas.bak
 
 
-*.7z
 *.cache
-*.zip
 *.orig
 
 
