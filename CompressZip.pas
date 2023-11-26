@@ -4,15 +4,13 @@ interface
 
 uses System.SysUtils, System.Classes, Generics.Collections, System.Zip;
 
-type
-  TFileNameList = TList<TFileName>;
 
-function CompressZipFile(const AZipFile: TFileName;
-  const AFileNameList: TFileNameList;
+function CompressZipFile(const AFileName: TFileName; const AZipFile: TFileName;
   const AOnProgress: TZipProgressEvent = nil): Boolean; overload;
 
-function CompressZipFile(const AZipFile: TFileName;
-  const AFileNameList: TStringList;
+// Распаковка в разные каталоги или сохранение вложения каталогов - не предусмотрено.
+function CompressZipFile(const AFileNameList: TStringList;
+  const AZipFile: TFileName;
   const AOnProgress: TZipProgressEvent = nil): Boolean; overload;
 
 function DecompressZipFile(const AZipFile: TFileName; const AExtractDir: string;
@@ -22,83 +20,93 @@ implementation
 
 uses System.IOUtils;
 
-function CompressZipFile(const AZipFile: TFileName;
-  const AFileNameList: TFileNameList;
-  const AOnProgress: TZipProgressEvent): Boolean;
+function Files_Exists(const AFileNameList: TStringList): Boolean; // Такое имя что бы не перепутать с FileExists
+var
+  i: Integer;
+  FName: TFileName;
+Begin
+  Result := False;
+  if not Assigned(AFileNameList) then
+    Exit;
+
+  for i := 0 to AFileNameList.Count - 1 do
+  Begin
+    FName := AFileNameList.Strings[i];
+    Result := FileExists(FName);
+    if not Result then
+      Break;
+  End;
+
+End;
+
+function CompressZipFile(const AFileName: TFileName;
+  const AZipFile: TFileName;
+  const AOnProgress: TZipProgressEvent = nil): Boolean;
 var
   ZF: TZipFile;
-  i: UInt32;
 Begin
-  Result := (Trim(AZipFile) <> '') and
-    (Assigned(AFileNameList) and (AFileNameList.Count > 0));
-  if not Result then
+  Result := False;
+  if not FileExists(AFileName) or
+     not TPath.HasValidFileNameChars(ExtractFileName(AZipFile), False)
+  then
     Exit;
 
   ZF := TZipFile.Create;
   try
-    try
-      if Assigned(AOnProgress) then
-        ZF.OnProgress := AOnProgress;
-      ZF.Open(AZipFile, zmWrite);
-      for i := 0 to AFileNameList.Count - 1 do
-        if AFileNameList.Items[i] <> '' then
-          ZF.Add(AFileNameList.Items[i], '', zcDeflate);
-      ZF.Close;
-    except
-      Result := False;
-    End; // try
+    if Assigned(AOnProgress) then
+      ZF.OnProgress := AOnProgress;
 
+    ZF.Open(AZipFile, zmWrite);
+    ZF.Add(AFileName, '', zcDeflate);
+    ZF.Close;
+  finally
+    ZF.Free;
+  end; // try
+
+End;
+
+function CompressZipFile(const AFileNameList: TStringList;
+  const AZipFile: TFileName;
+  const AOnProgress: TZipProgressEvent = nil): Boolean; overload;
+var
+  ZF: TZipFile;
+  i: Integer;
+Begin
+  Result := False;
+  if not Assigned(AFileNameList) or
+     not Files_Exists(AFileNameList) or
+     not TPath.HasValidFileNameChars(AZipFile, False)
+  then
+   Exit;
+
+  ZF := TZipFile.Create;
+  try
+    if Assigned(AOnProgress) then
+      ZF.OnProgress := AOnProgress;
+
+    ZF.Open(AZipFile, zmWrite);
+    for i := 0 to AFileNameList.Count - 1 do
+     ZF.Add(AFileNameList.Strings[i], '', zcDeflate);
+    ZF.Close;
   finally
     ZF.Free;
   end; // try
 
 end;
 
-function CompressZipFile(const AZipFile: TFileName;
-  const AFileNameList: TStringList; const AOnProgress: TZipProgressEvent = nil)
-  : Boolean; overload;
-var
-  ZF: TZipFile;
-  i: UInt32;
-Begin
-  Result := (Trim(AZipFile) <> '') and
-    (Assigned(AFileNameList) and (AFileNameList.Count > 0));
-  if not Result then
-    Exit;
-
-  ZF := TZipFile.Create;
-  try
-
-    try
-      if Assigned(AOnProgress) then
-        ZF.OnProgress := AOnProgress;
-      ZF.Open(AZipFile, zmWrite);
-      for i := 0 to AFileNameList.Count - 1 do
-        if AFileNameList.Strings[i] <> '' then
-          ZF.Add(AFileNameList.Strings[i], '', zcDeflate);
-      ZF.Close;
-    except
-      Result := False;
-    End; // try
-
-  finally
-    ZF.Free;
-  end; // try
-
-end;
-
-function DecompressZipFile(const AZipFile: TFileName; const AExtractDir: string;
+function DecompressZipFile(const AZipFile: TFileName;
+  const AExtractDir: string;
   const AOnProgress: TZipProgressEvent): Boolean;
 Begin
-  Result := TZipFile.IsValid(AZipFile) and (Trim(AExtractDir) <> '') and
-            TPath.HasValidPathChars(AExtractDir);
-  if Result then
-    try
-      TZipFile.ExtractZipFile(AZipFile, AExtractDir, AOnProgress);
-    except
-      Result := False;
-    end; // try
+  Result := False;
+  if not TZipFile.IsValid(AZipFile) or
+     not DirectoryExists(AExtractDir) or
+     not TPath.HasValidPathChars(ExtractFileDir(AExtractDir), False)
+  then
+   Exit;
 
+  TZipFile.ExtractZipFile(AZipFile, AExtractDir, AOnProgress);
+  Result := True;
 end;
 
 end.
