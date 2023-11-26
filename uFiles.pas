@@ -1,4 +1,4 @@
-{
+﻿{
 
   Вспомогательные функции для работа с файлами
 
@@ -129,6 +129,7 @@ Function IsFileImage(const AFileName: TFileName): Boolean; inline;
 Function IsFileVideo(const AFileName: TFileName): Boolean; inline;
 Function IsFileAudio(const AFileName: TFileName): Boolean; inline;
 
+// Блочная обработка потока, обработка должна происходить в ADataBlock
 function StreamDataProcessing(const ASource, ADest: TStream;
   const ADataBlock: TDataProc = nil; ADataBlockSize: Int64 = $FFFF;
   AProgress: TProgressProc = nil): Boolean;
@@ -340,33 +341,31 @@ function StreamDataProcessing(const ASource, ADest: TStream;
   end;
 
 var
-  L: Int64;
-  N: Integer;
+  L: Integer;
+  iSize: Int64;
   Buffer: TBytes;
 Begin
-  Result := Assigned(ASource) and Assigned(ADest) and (ADataBlockSize > 0);
-  if not Result then
+  Result := False;
+  if not Assigned(ASource) or
+    (ASource.Size = 0) or
+     not Assigned(ADest) or
+    (ADest.Size = 0) or
+     not Assigned(ADataBlock) or
+    (ADataBlockSize = 0)
+  then
     Exit;
 
-  SetLength(Buffer, ADataBlockSize);
-  try
-    try
-      L := ASource.Size;
-      ASource.Position := 0;
-      repeat
-        N := ASource.Read(Buffer, ADataBlockSize);
-        CallBack(Buffer, N);
+  iSize := ASource.Size;
+  ASource.Position := 0;
+  repeat
+    L := ASource.Read(Buffer, ADataBlockSize);
+    CallBack(Buffer, L);
 
-        ADest.Write(Buffer[0], N);
-        Progress(ASource.Position, L);
-      until N = 0;
-    except
-      Result := False;
-    end; // try
+    ADest.Write(Buffer[0], L);
+    Progress(ASource.Position, iSize);
+  until L = 0;
 
-  finally
-    SetLength(Buffer, 0);
-  end; // try
+  Result:= True;
 End;
 
 function StreamFileProcessing(const ASource, ADest: string;
@@ -376,13 +375,18 @@ var
   SourceFile, DestFile: TFileStream;
 Begin
   SourceFile := TFileStream.Create(ASource, fmOpenRead);
-  DestFile := TFileStream.Create(ADest, fmCreate);
+  DestFile := TFileStream.Create(ADest, fmCreate or fmOpenWrite);
+  try
+   Result := StreamDataProcessing( SourceFile, DestFile,
+                                   ADataBlock,
+                                   ADataBlockSize,
+                                   AProgress);
+  finally
+   FreeAndNil(DestFile);
+   FreeAndNil(SourceFile);
+  end;
 
-  Result := StreamDataProcessing(SourceFile, DestFile, ADataBlock,
-    ADataBlockSize, AProgress);
 
-  FreeAndNil(DestFile);
-  FreeAndNil(SourceFile);
 End;
 
 
