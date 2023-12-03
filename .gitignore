@@ -8,6 +8,7 @@
 
 # Delphi local files
 __history/
+__recovery/
 *.local
 *.identcache
 *.projdata
