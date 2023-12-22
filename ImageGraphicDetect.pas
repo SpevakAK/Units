@@ -1,3 +1,7 @@
+{
+  Использовались материалы https://delphihaven.wordpress.com/2011/01/22/tip-detecting-graphic-formats/
+}
+
 unit ImageGraphicDetect;
 
 interface
