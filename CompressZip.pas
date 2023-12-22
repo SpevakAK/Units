@@ -8,7 +8,7 @@ uses System.SysUtils, System.Classes, Generics.Collections, System.Zip;
 function CompressZipFile(const AFileName: TFileName; const AZipFile: TFileName;
   const AOnProgress: TZipProgressEvent = nil): Boolean; overload;
 
-// Распаковка в разные каталоги или сохранение вложения каталогов - не предусмотрено.
+// Р Р°СЃРїР°РєРѕРІРєР° РІ СЂР°Р·РЅС‹Рµ РєР°С‚Р°Р»РѕРіРё РёР»Рё СЃРѕС…СЂР°РЅРµРЅРёРµ РІР»РѕР¶РµРЅРёСЏ РєР°С‚Р°Р»РѕРіРѕРІ - РЅРµ РїСЂРµРґСѓСЃРјРѕС‚СЂРµРЅРѕ.
 function CompressZipFile(const AFileNameList: TStringList;
   const AZipFile: TFileName;
   const AOnProgress: TZipProgressEvent = nil): Boolean; overload;
@@ -20,7 +20,7 @@ implementation
 
 uses System.IOUtils;
 
-function Files_Exists(const AFileNameList: TStringList): Boolean; // Такое имя что бы не перепутать с FileExists
+function Files_Exists(const AFileNameList: TStringList): Boolean; // РўР°РєРѕРµ РёРјСЏ С‡С‚Рѕ Р±С‹ РЅРµ РїРµСЂРµРїСѓС‚Р°С‚СЊ СЃ FileExists
 var
   i: Integer;
   FName: TFileName;
